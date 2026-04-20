@@ -20,6 +20,27 @@ use tokio::sync::mpsc;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Check for CLI arguments
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() > 1 && args[1] == "open" {
+        let manager = blender::BlenderManager::new()?;
+        if let Some(default_v) = manager.get_default_version() {
+            let installed = manager.list_installed()?;
+            if let Some(v) = installed.iter().find(|i| i.version == default_v) {
+                println!("Launching default Blender version: {}", default_v);
+                let env = manager.get_launch_env();
+                blender::launch_blender(v.path.clone(), env)?;
+                return Ok(());
+            } else {
+                println!("Error: Default version '{}' is not installed.", default_v);
+                return Ok(());
+            }
+        } else {
+            println!("Error: No default version set. Open the TUI to set one.");
+            return Ok(());
+        }
+    }
+
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;

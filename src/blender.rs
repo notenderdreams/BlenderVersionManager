@@ -16,6 +16,7 @@ pub struct InstalledVersion {
 
 pub struct BlenderManager {
     pub base_path: PathBuf,
+    pub settings_path: PathBuf,
 }
 
 impl BlenderManager {
@@ -23,42 +24,57 @@ impl BlenderManager {
         let base_path = std::env::var("BVM_PATH")
             .map(PathBuf::from)
             .or_else(|_| -> Result<PathBuf, anyhow::Error> {
-                // Fallback to a default if not set, but we should inform the user
                 let home = directories::BaseDirs::new()
                     .ok_or_else(|| anyhow::anyhow!("Could not find home directory"))?;
                 Ok(home.home_dir().join(".bvm"))
             })?;
 
-        if !base_path.exists() {
-            fs::create_dir_all(&base_path)?;
+        let settings_path = base_path.join("settings.json");
+        let manager = Self { base_path, settings_path };
+        manager.ensure_dirs()?;
+        Ok(manager)
+    }
+
+    fn ensure_dirs(&self) -> Result<(), anyhow::Error> {
+        if !self.base_path.exists() {
+            fs::create_dir_all(&self.base_path)?;
         }
 
-        // Create subdirectories
-        let versions_dir = base_path.join("versions");
+        let versions_dir = self.base_path.join("versions");
         if !versions_dir.exists() {
             fs::create_dir_all(&versions_dir)?;
         }
 
-        let shared_dir = base_path.join("shared_config");
-        let config_dir = shared_dir.join("config");
-        let scripts_dir = shared_dir.join("scripts");
-        let datafiles_dir = shared_dir.join("datafiles");
-
-        for dir in &[&config_dir, &scripts_dir, &datafiles_dir] {
-            if !dir.exists() {
-                fs::create_dir_all(dir)?;
+        let shared_dir = self.base_path.join("shared_config");
+        let subdirs = ["config", "scripts", "datafiles", "scripts/addons", "scripts/presets", "scripts/startup", "scripts/modules"];
+        for sub in subdirs {
+            let path = shared_dir.join(sub);
+            if !path.exists() {
+                fs::create_dir_all(&path)?;
             }
         }
+        Ok(())
+    }
 
-        // Standard subdirectories for scripts to ensure Blender detects them
-        for sub in &["addons", "presets", "startup", "modules"] {
-            let sub_path = scripts_dir.join(sub);
-            if !sub_path.exists() {
-                fs::create_dir_all(sub_path)?;
-            }
+    pub fn get_default_version(&self) -> Option<String> {
+        if let Ok(content) = fs::read_to_string(&self.settings_path) {
+            let v: serde_json::Value = serde_json::from_str(&content).unwrap_or_default();
+            return v.get("default_version").and_then(|v| v.as_str()).map(|s| s.to_string());
         }
+        None
+    }
 
-        Ok(Self { base_path })
+    pub fn set_default_version(&self, version: &str) -> Result<(), anyhow::Error> {
+        let mut v: serde_json::Value = if let Ok(content) = fs::read_to_string(&self.settings_path) {
+            serde_json::from_str(&content).unwrap_or(serde_json::json!({}))
+        } else {
+            serde_json::json!({})
+        };
+        
+        v["default_version"] = serde_json::Value::String(version.to_string());
+        let content = serde_json::to_string_pretty(&v)?;
+        fs::write(&self.settings_path, content)?;
+        Ok(())
     }
 
     pub fn get_versions_dir(&self) -> PathBuf {
@@ -87,7 +103,6 @@ impl BlenderManager {
             }
         }
         
-        // Sort by version (simple string sort for now)
         installed.sort_by(|a, b| b.version.cmp(&a.version));
         Ok(installed)
     }

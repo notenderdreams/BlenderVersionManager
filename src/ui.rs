@@ -91,14 +91,19 @@ pub fn ui(f: &mut Frame, app: &mut App) {
             let items: Vec<ListItem> = app.installed
                 .iter()
                 .map(|v| {
-                    let content = vec![
-                        Line::from(vec![
-                            Span::styled(" 󰂖 ", Style::default().fg(Color::Green)),
-                            Span::styled(format!("{:<10}", v.version), Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
-                            Span::styled(format!("  {:?}", v.path), Style::default().fg(Color::DarkGray)),
-                        ])
+                    let is_default = app.default_version.as_ref() == Some(&v.version);
+                    let mut line_elements = vec![
+                        if is_default {
+                            Span::styled("  ", Style::default().fg(Color::Yellow))
+                        } else {
+                            Span::styled(" 󰂖 ", Style::default().fg(Color::Green))
+                        },
+                        Span::styled(format!("{:<10}", v.version), Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
                     ];
-                    ListItem::new(content)
+                    
+                    line_elements.push(Span::styled(format!("  {:?}", v.path), Style::default().fg(Color::DarkGray)));
+                    
+                    ListItem::new(vec![Line::from(line_elements)])
                 })
                 .collect();
             let list = List::new(items)
@@ -116,6 +121,7 @@ pub fn ui(f: &mut Frame, app: &mut App) {
         Line::from("  Tab   Switch Tab"),
         Line::from("  1 / 2 Switch Direct"),
         Line::from("  Enter Install/Launch"),
+        Line::from("  's'   Set Default"),
         Line::from("  'd'   Remove"),
         Line::from("  'f'   Refresh List"),
         Line::from("  'q'   Quit"),

@@ -27,6 +27,7 @@ pub enum Action {
     RefreshInstalled,
     Remove(String),
     Launch(String),
+    SetDefault(String),
 }
 
 pub struct App {
@@ -39,12 +40,14 @@ pub struct App {
     pub status: String,
     pub downloading: Option<f64>,
     pub should_quit: bool,
+    pub default_version: Option<String>,
 }
 
 impl App {
     pub fn new() -> Result<Self> {
         let manager = BlenderManager::new()?;
         let installed = manager.list_installed()?;
+        let default_version = manager.get_default_version();
         
         let mut available_state = ListState::default();
         available_state.select(Some(0));
@@ -62,6 +65,7 @@ impl App {
             status: "Welcome to BVM! Press 'f' to fetch versions.".to_string(),
             downloading: None,
             should_quit: false,
+            default_version,
         })
     }
 
@@ -176,6 +180,12 @@ pub async fn run_app<B: Backend>(
                     let env = a.manager.get_launch_env();
                     blender::launch_blender(path, env)?;
                 }
+                Action::SetDefault(version) => {
+                    let mut a = app.lock().unwrap();
+                    let _ = a.manager.set_default_version(&version);
+                    a.default_version = Some(version);
+                    a.status = "Default version updated.".to_string();
+                }
             }
         }
 
@@ -240,6 +250,21 @@ pub async fn run_app<B: Backend>(
                                 }
                             }
                             None
+                        }
+                        KeyCode::Char('s') => {
+                            if matches!(app.view_mode, ViewMode::Installed) {
+                                if let Some(i) = app.installed_state.selected() {
+                                    if let Some(v) = app.installed.get(i) {
+                                        Some(Action::SetDefault(v.version.clone()))
+                                    } else {
+                                        None
+                                    }
+                                } else {
+                                    None
+                                }
+                            } else {
+                                None
+                            }
                         }
                         KeyCode::Char('y') => {
                             if let ViewMode::ConfirmDelete(v) = &app.view_mode {
