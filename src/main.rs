@@ -20,6 +20,26 @@ use tokio::sync::mpsc;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Check if we need to configure bvm path
+    if blender::BlenderManager::get_stored_base_path().is_none() {
+        println!("Welcome to BVM!");
+        println!("Please enter the absolute path where you want to store Blender versions and shared settings:");
+        println!("(Example: G:\\BVM or /home/user/bvm)");
+        
+        let mut input = String::new();
+        io::stdin().read_line(&mut input)?;
+        let path_str = input.trim();
+        
+        if path_str.is_empty() {
+            println!("Error: Path cannot be empty.");
+            return Ok(());
+        }
+        
+        let path = std::path::PathBuf::from(path_str);
+        blender::BlenderManager::store_base_path(&path)?;
+        println!("Success! Configurations will be saved in: {}", path.display());
+    }
+
     // Check for CLI arguments
     let args: Vec<String> = std::env::args().collect();
     if args.len() > 1 && args[1] == "open" {

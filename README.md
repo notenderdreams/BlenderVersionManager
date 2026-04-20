@@ -9,22 +9,18 @@ BVM is an utility to manage multiple Blender installations while keeping all you
 
 ## Setup & Environment
 
-BVM relies on the `BVM_PATH` environment variable to determine where to store Blender versions and your shared settings.
+BVM no longer requires an environment variable. 
 
-### 1. Set the Path
-You must set `BVM_PATH` before running the application.
+### First Run
+When you run BVM for the first time, it will ask you to enter the **absolute path** where you want to store your Blender versions and shared settings. 
 
-#### **Windows (PowerShell)**:
-```powershell
-[System.Environment]::SetEnvironmentVariable('BVM_PATH', 'C:\Path\To\Your\BVM', 'User')
-```
-*Note: Restart your terminal after setting this.*
+- This path is stored in a global config file: `~/.bvm_config.json`.
+- All your Blender installations and shared configurations will be managed inside the directory you choose.
 
-#### **Linux / macOS**:
-Add this to your `.bashrc` or `.zshrc`:
-```bash
-export BVM_PATH="$HOME/.bvm"
-```
+### Changing the Path
+If you want to move your BVM core to a different location:
+1. Move your current BVM folder to the new location.
+2. Update the `base_path` in `~/.bvm_config.json`.
 
 ### 2. Folder Structure
 Once set, BVM will create the following within that directory:

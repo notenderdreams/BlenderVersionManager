@@ -20,14 +20,34 @@ pub struct BlenderManager {
 }
 
 impl BlenderManager {
+    pub fn get_config_path() -> Result<PathBuf, anyhow::Error> {
+        let home = directories::BaseDirs::new()
+            .ok_or_else(|| anyhow::anyhow!("Could not find home directory"))?;
+        Ok(home.home_dir().join(".bvm_config.json"))
+    }
+
+    pub fn get_stored_base_path() -> Option<PathBuf> {
+        let config_path = Self::get_config_path().ok()?;
+        if let Ok(content) = fs::read_to_string(config_path) {
+            let v: serde_json::Value = serde_json::from_str(&content).unwrap_or_default();
+            return v.get("base_path").and_then(|v| v.as_str()).map(PathBuf::from);
+        }
+        None
+    }
+
+    pub fn store_base_path(path: &std::path::Path) -> Result<(), anyhow::Error> {
+        let config_path = Self::get_config_path()?;
+        let v = serde_json::json!({
+            "base_path": path.to_string_lossy()
+        });
+        let content = serde_json::to_string_pretty(&v)?;
+        fs::write(config_path, content)?;
+        Ok(())
+    }
+
     pub fn new() -> Result<Self, anyhow::Error> {
-        let base_path = std::env::var("BVM_PATH")
-            .map(PathBuf::from)
-            .or_else(|_| -> Result<PathBuf, anyhow::Error> {
-                let home = directories::BaseDirs::new()
-                    .ok_or_else(|| anyhow::anyhow!("Could not find home directory"))?;
-                Ok(home.home_dir().join(".bvm"))
-            })?;
+        let base_path = Self::get_stored_base_path()
+            .ok_or_else(|| anyhow::anyhow!("No base path configured"))?;
 
         let settings_path = base_path.join("settings.json");
         let manager = Self { base_path, settings_path };
